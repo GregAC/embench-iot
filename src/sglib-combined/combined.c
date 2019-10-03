@@ -15,6 +15,8 @@
 #include "support.h"
 #include "sglib.h"
 
+const char* bench_name = "sglib-combined";
+
 /* This scale factor will be changed to equalise the runtime of the
    benchmarks. */
 #define LOCAL_SCALE_FACTOR 33

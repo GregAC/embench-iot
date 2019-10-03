@@ -35,6 +35,7 @@ int verify_benchmark (int result);
 void initialise_board (void);
 void start_trigger (void);
 void stop_trigger (void);
+void board_bench_result (int);
 
 /* Every benchmark implements this for one-off data initialization.  This is
    only used for initialization that is independent of how often benchmark ()
@@ -57,6 +58,8 @@ int benchmark (void) __attribute__ ((noinline));
    benchmark. */
 
 int verify_benchmark (int res);
+
+extern const char* bench_name;
 
 /* Local simplified versions of library functions */
 

@@ -18,6 +18,8 @@
 #include <stdbool.h>
 #include "support.h"
 
+const char* bench_name = "nettle-sha256";
+
 /* This scale factor will be changed to equalise the runtime of the
    benchmarks. */
 #define LOCAL_SCALE_FACTOR 397

@@ -15,8 +15,7 @@
    benchmarks. */
 #define LOCAL_SCALE_FACTOR 5
 
-
-
+const char* bench_name = "cubic";
 
 static int soln_cnt0;
 static int soln_cnt1;

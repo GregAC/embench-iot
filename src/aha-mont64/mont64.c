@@ -30,6 +30,8 @@ some 128-bit arithmetic.
 #include <stdio.h>
 #include <stdint.h>
 
+const char* bench_name = "aha-mont64";
+
 typedef uint64_t uint64;
 typedef int64_t int64;
 

@@ -29,6 +29,8 @@
 #include <math.h>
 #include <limits.h>
 
+const char* bench_name = "wikisort";
+
 /* various #defines for the C code */
 #ifndef true
 #define true 1

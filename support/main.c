@@ -34,6 +34,8 @@ main (int argc __attribute__ ((unused)),
 
   correct = verify_benchmark (result);
 
+  board_bench_result(correct);
+
   return (!correct);
 
 }				/* main () */

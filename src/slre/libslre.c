@@ -26,6 +26,8 @@
 
 #include "slre.h"
 
+const char* bench_name = "slre";
+
 #define MAX_BRANCHES 100
 #define MAX_BRACKETS 100
 #define ARRAY_SIZE(ar) (int) (sizeof(ar) / sizeof((ar)[0]))

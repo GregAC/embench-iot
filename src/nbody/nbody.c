@@ -61,6 +61,8 @@
 
 #include "support.h"
 
+const char* bench_name = "nbody";
+
 #define LOCAL_SCALE_FACTOR 1
 
 #define PI 3.141592653589793

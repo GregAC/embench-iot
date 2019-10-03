@@ -28,6 +28,8 @@
 #pragma warn -cln
 #endif
 
+const char* bench_name = "crc32";
+
 /**********************************************************************\
   |* Demonstration program to compute the 32-bit CRC used as the frame  *|
   |* check sequence in ADCCP (ANSI X3.66, also known as FIPS PUB 71     *|

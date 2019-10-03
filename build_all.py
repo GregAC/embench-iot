@@ -128,6 +128,11 @@ def build_parser():
     parser.add_argument(
         '--clean', action='store_true', help='Rebuild everything'
     )
+    parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Output all details of build actions to debug log'
+    )
 
     return parser
 
@@ -192,6 +197,7 @@ def validate_args(args):
             + f'"{args.arch}": exiting'
         )
         sys.exit(1)
+    gp['verbose'] = args.verbose
 
     # Other args validated later.
 
@@ -382,10 +388,13 @@ def set_parameters(args):
     for conf in ['arch', 'chip', 'board']:
         config[conf] = {}
         conf_file = os.path.join(gp[conf + 'dir'], conf + '.cfg')
+        log.debug(f'Reading config {conf_file}')
         if os.path.isfile(conf_file):
             with open(conf_file) as fileh:
                 try:
-                    exec(fileh.read(), globals(), config[conf])
+                    globals_for_cfg = globals().copy()
+                    globals_for_cfg.update({'cfg_dir' : gp[conf + 'dir']})
+                    exec(fileh.read(), globals_for_cfg, config[conf])
                 except PermissionError:
                     log.error('ERROR: Corrupt config file {conf_file}: exiting')
                     sys.exit(1)
@@ -436,6 +445,9 @@ def compile_file(f_root, srcdir, bindir):
     abs_src = os.path.join(f'{srcdir}', f'{f_root}.c')
     abs_bin = os.path.join(f'{bindir}', f'{f_root}.o')
 
+    if(gp['verbose']):
+        log.debug(f'Compiling {f_root} from {abs_src} to {abs_bin}')
+
     # Construct the argument list
     arglist = [f'{gp["cc"]}']
     arglist.extend(gp['cflags'])
@@ -446,9 +458,12 @@ def compile_file(f_root, srcdir, bindir):
     # binary.
     succeeded = True
 
-    if not os.path.isfile(abs_bin) or (
-            os.path.getmtime(abs_src) > os.path.getmtime(abs_bin)
-    ):
+    bin_needs_build = not os.path.isfile(abs_bin) or (os.path.getmtime(abs_src) > os.path.getmtime(abs_bin))
+
+    if gp['verbose'] and not bin_needs_build:
+        log.debug(f'{abs_bin} up to date, skipping compile')
+
+    if bin_needs_build:
         try:
             res = subprocess.run(
                 arglist,
@@ -470,9 +485,9 @@ def compile_file(f_root, srcdir, bindir):
             )
             succeeded = False
 
-    if not succeeded:
+    if not succeeded or (gp['verbose'] and bin_needs_build):
         log.debug('Args to subprocess:')
-        log.debug(f'{arglist}')
+        log.debug('\n'.join([f'\t- {a}' for a in arglist]))
         log.debug(res.stdout.decode('utf-8'))
         log.debug(res.stderr.decode('utf-8'))
 
@@ -627,6 +642,11 @@ def link_benchmark(bench):
 
     # Create the argument list
     binlist = create_link_binlist(abs_bd_b)
+
+    if(gp['verbose']):
+        log.debug(f'Linking {abs_bd_b}')
+        log.debug('Binaries to link: ' + ' ,'.join(binlist))
+
     if not binlist:
         succeeded = False
     arglist = create_link_arglist(bench, binlist)
@@ -647,14 +667,64 @@ def link_benchmark(bench):
         log.warning(f'Warning: link of benchmark "{bench}" timed out')
         succeeded = False
 
-    if not succeeded:
+    if not succeeded or gp['verbose']:
         log.debug('Args to subprocess:')
-        log.debug(f'{arglist}')
+        log.debug('\n'.join([f'\t- {a}' for a in arglist]))
         log.debug(res.stdout.decode('utf-8'))
         log.debug(res.stderr.decode('utf-8'))
 
     return succeeded
 
+def post_process_benchmark(bench):
+    """Post process the benchmark, "bench".
+
+       Return True if post process is successful, False otherwise."""
+    abs_bd_b = os.path.join(gp['bd_benchdir'], bench)
+    bench_bin = os.path.join(abs_bd_b, bench)
+
+    if not os.path.isfile(bench_bin):
+        log.warning(
+            'Warning: Unable to find build binary for '
+            + f'benchmark {bench}'
+        )
+        return False
+
+    if(gp['verbose']):
+        log.debug(f'Post processing {bench_bin}')
+
+    if 'post_process_cmd' not in gp:
+        log.debug(f'No post process cmd defined')
+        return True
+
+    # Use a flag to track warnings, but keep going through warnings.
+    succeeded = True
+
+    arglist = [gp['post_process_cmd'], bench_bin]
+
+    # Run the postprocess
+    try:
+        log.debug(arglist)
+        res = subprocess.run(
+            arglist,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=abs_bd_b,
+            timeout=5,
+        )
+        if res.returncode != 0:
+            log.warning(f'Warning: Post-process of benchmark "{bench}" failed')
+            succeeded = False
+    except subprocess.TimeoutExpired:
+        log.warning(f'Warning: Post-process of benchmark "{bench}" timed out')
+        succeeded = False
+
+    if not succeeded or gp['verbose']:
+        log.debug('Args to subprocess:')
+        log.debug('\n'.join([f'\t- {a}' for a in arglist]))
+        log.debug(res.stdout.decode('utf-8'))
+        log.debug(res.stderr.decode('utf-8'))
+
+    return succeeded
 
 def main():
     """Main program to drive building of benchmarks."""
@@ -695,17 +765,30 @@ def main():
     for bench in benchmarks:
         res = compile_benchmark(bench)
         successful &= res
-        if res:
-            log.debug(f'Compilation of benchmark "{bench}" successful')
-            res = link_benchmark(bench)
-            successful &= res
-            if res:
-                log.debug(f'Linking of benchmark "{bench}" successful')
-                log.info(f'{bench}')
+
+        if not res:
+            continue
+
+        log.debug(f'Compilation of benchmark "{bench}" successful')
+        res = link_benchmark(bench)
+        successful &= res
+
+        if not res:
+            continue
+
+        log.debug(f'Linking of benchmark "{bench}" successful')
+
+        res = post_process_benchmark(bench)
+        successful &= res
+
+        if not res:
+            continue
+
+        log.debug(f'Post-process of benchmark "{bench}" successful')
+        log.info(f'{bench}')
 
     if successful:
         log.info('All benchmarks built successfully')
-
 
 # Only run if this is the main package
 

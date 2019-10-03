@@ -117,6 +117,8 @@ def benchmark_speed(bench, target_args):
     appdir = os.path.join(gp['bd_benchdir'], bench)
     appexe = os.path.join(appdir, bench)
 
+    log.debug(f'Running benchmark: {bench}')
+
     if os.path.isfile(appexe):
         arglist = build_benchmark_cmd(bench, target_args)
         try:
@@ -125,7 +127,7 @@ def benchmark_speed(bench, target_args):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 cwd=appdir,
-                timeout=30,
+                timeout=120,
             )
             if res.returncode != 0:
                 log.warning(f'Warning: Run of {bench} failed.')
@@ -140,20 +142,20 @@ def benchmark_speed(bench, target_args):
     # Process results
     if succeeded:
         exec_time = decode_results(
-            res.stdout.decode('utf-8'), res.stderr.decode('utf-8')
+            res.stdout.decode('utf-8'), res.stderr.decode('utf-8'), bench, appdir
         )
         succeeded = exec_time > 0
+
+    log.debug('Args to subprocess:')
+    log.debug('\n'.join([f'\t- {a}' for a in arglist]))
+    if 'res' in locals():
+        log.debug(res.stdout.decode('utf-8'))
+        log.debug(res.stderr.decode('utf-8'))
 
     if succeeded:
         return exec_time
     else:
-        log.debug('Args to subprocess:')
-        log.debug(f'{arglist}')
-        if 'res' in locals():
-            log.debug(res.stdout.decode('utf-8'))
-            log.debug(res.stderr.decode('utf-8'))
         return 0.0
-
 
 def collect_data(benchmarks, remnant):
     """Collect and log all the raw and optionally relative data associated with
